@@ -1,6 +1,6 @@
 # 🌿 MontKailash Cannabis — Market Intelligence Pipeline
 
-> A fully automated 7-step Python pipeline that collects, enriches, and scores cannabis retail intelligence for Burlington, Ontario (35 km radius). Outputs a polished Excel pack and PDF strategy report — no paid APIs required.
+> A fully automated Python pipeline that collects, enriches, and scores cannabis retail intelligence for Burlington, Ontario (35 km radius). Outputs a polished Excel pack and PDF strategy report — no paid APIs required.
 
 ---
 
@@ -12,6 +12,7 @@
 - [Installation](#installation)
 - [Usage](#usage)
 - [Output Files](#output-files)
+- [Data Sources](#data-sources)
 - [Known Limitations](#known-limitations)
 - [Disclaimer](#disclaimer)
 
@@ -21,31 +22,31 @@
 
 This pipeline answers six business questions for a cannabis retailer entering or competing in the Burlington, ON market:
 
-1. **How many licensed stores operate within 35 km?** (AGCO registry)
-2. **What are their contact details and hours?** (web scraping)
-3. **What products and prices do competitors carry?** (BestBangForYourBud)
-4. **How do those prices compare to HiBuddy.ca and OCS.ca?** (multi-source comparison)
-5. **What is the market sentiment and velocity for each product?** (Reddit + analytics)
-6. **Which products should be prioritised — and what action should be taken?** (scoring engine)
+1. **How many licensed stores operate within 35 km?** — AGCO registry
+2. **What are their contact details and hours?** — web scraping
+3. **What products and prices do competitors carry?** — BestBangForYourBud
+4. **How do those prices compare to HiBuddy.ca and OCS.ca?** — multi-source comparison
+5. **What is the market sentiment and velocity for each product?** — Reddit + analytics
+6. **Which products should be prioritised — and what action should be taken?** — scoring engine
 
 ---
 
 ## Pipeline Architecture
 
 ```
-step1.py  →  AGCO store list (35 km radius, Burlington ON)
+fetch_stores_agco.py           →  AGCO store list (35 km radius, Burlington ON)
     ↓
-step2.py  →  Enrich with phone + hours (web scraping)
+enrich_store_contacts.py       →  Enrich with phone + hours (web scraping)
     ↓
-step3.py  →  Competitor product catalogue + pricing (BestBangForYourBud)
+scrape_competitor_products.py  →  Competitor product catalogue + pricing (BestBangForYourBud)
     ↓
-step4.py  →  Market price comparison (HiBuddy + OCS Shopify API)
+compare_market_prices.py       →  Market price comparison (HiBuddy + OCS Shopify API)
     ↓
-step5.py  →  Reddit brand sentiment + business analytics summary
+reddit_sentiment_analytics.py  →  Reddit brand sentiment + business analytics summary
     ↓
-step6.py  →  Priority scoring + executive actionable insights
+score_product_insights.py      →  Priority scoring + executive actionable insights
     ↓
-step7.py  →  Final Excel intelligence pack + PDF strategy report
+export_reports.py              →  Final Excel intelligence pack + PDF strategy report
 ```
 
 All intermediate results are cached in `/output/` — re-running any step does not re-fetch already-collected data.
@@ -55,23 +56,16 @@ All intermediate results are cached in `/output/` — re-running any step does n
 ## Requirements
 
 - Python 3.10+
-- Node.js (only if regenerating this README or docs — not required to run pipeline)
 
 ### Python Dependencies
 
 ```
-pandas
-requests
-beautifulsoup4
-lxml
-openpyxl
-reportlab
-```
-
-Install all at once:
-
-```bash
-pip install pandas requests beautifulsoup4 lxml openpyxl reportlab
+pandas>=1.5.0
+requests>=2.28.0
+beautifulsoup4>=4.12.0
+lxml>=4.9.0
+openpyxl>=3.1.0
+reportlab>=4.0.0
 ```
 
 ---
@@ -79,28 +73,36 @@ pip install pandas requests beautifulsoup4 lxml openpyxl reportlab
 ## Installation
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/montkailash-intelligence.git
-cd montkailash-intelligence
-pip install pandas requests beautifulsoup4 lxml openpyxl reportlab
+git clone https://github.com/YOUR_USERNAME/cannabis-market-intel.git
+cd cannabis-market-intel
+pip install -r requirements.txt
 ```
 
 ---
 
 ## Usage
 
-### Run the full pipeline sequentially
+### Run the full pipeline (recommended)
 
 ```bash
-python step1.py   # ~30 seconds
-python step2.py   # ~5–10 minutes (scrapes each store website)
-python step3.py   # ~3–5 minutes
-python step4.py   # ~5–10 minutes (HiBuddy + OCS)
-python step5.py   # ~10–20 minutes (Reddit, rate-limit safe)
-python step6.py   # ~5 seconds
-python step7.py   # ~10 seconds
+python run_all.py
 ```
 
-### Configuration (step1.py)
+This runs all 7 steps in sequence, shows progress and timing per step, and stops immediately if any step fails.
+
+### Run individual steps
+
+```bash
+python fetch_stores_agco.py           # ~30 seconds
+python enrich_store_contacts.py       # ~5–10 minutes
+python scrape_competitor_products.py  # ~3–5 minutes
+python compare_market_prices.py       # ~5–10 minutes
+python reddit_sentiment_analytics.py  # ~10–20 minutes (rate-limit safe)
+python score_product_insights.py      # ~5 seconds
+python export_reports.py              # ~10 seconds
+```
+
+### Configuration (`fetch_stores_agco.py`)
 
 | Variable | Default | Description |
 |---|---|---|
@@ -116,17 +118,17 @@ All files are written to the `/output/` directory.
 
 | File | Description | Created by |
 |---|---|---|
-| `stores_master.csv` | Licensed stores within 35 km | step1 + step2 |
-| `products_pricing_snapshot.csv` | Competitor product catalogue with pricing | step3 |
-| `bbfyb_stores.csv` | BestBangForYourBud store cross-reference | step3 |
-| `hibuddy_raw.csv` | Raw HiBuddy.ca prices (cached) | step4 |
-| `ocs_raw.csv` | OCS full product catalogue (cached) | step4 |
-| `market_comparison.csv` | Price delta vs OCS and HiBuddy | step4 |
-| `reddit_sentiment_raw.csv` | Per-brand Reddit sentiment (cached) | step5 |
-| `business_analytics_summary.csv` | Sales velocity, sell-through, pricing frequency | step5 |
-| `executive_actionable_insights.csv` | Priority scores + strategic actions | step6 |
-| `MontKailash_Executive_Insight_Pack.xlsx` | Multi-tab Excel pack with conditional formatting | step7 |
-| `MontKailash_Strategy_Report.pdf` | Branded PDF report with top 10 opportunities | step7 |
+| `stores_master.csv` | Licensed stores within 35 km with phone + hours | fetch + enrich |
+| `products_pricing_snapshot.csv` | Competitor product catalogue with pricing | scrape_competitor |
+| `bbfyb_stores.csv` | BestBangForYourBud store cross-reference | scrape_competitor |
+| `hibuddy_raw.csv` | Raw HiBuddy.ca prices (cached) | compare_market |
+| `ocs_raw.csv` | OCS full product catalogue (cached) | compare_market |
+| `market_comparison.csv` | Price delta vs OCS and HiBuddy | compare_market |
+| `reddit_sentiment_raw.csv` | Per-brand Reddit sentiment (cached) | reddit_sentiment |
+| `business_analytics_summary.csv` | Sales velocity, sell-through, pricing frequency | reddit_sentiment |
+| `executive_actionable_insights.csv` | Priority scores + strategic actions | score_insights |
+| `MontKailash_Executive_Insight_Pack.xlsx` | Multi-tab Excel pack with conditional formatting | export_reports |
+| `MontKailash_Strategy_Report.pdf` | Branded PDF report with top 10 opportunities | export_reports |
 
 ---
 
@@ -148,10 +150,29 @@ All files are written to the `/output/` directory.
 | Limitation | Impact | Suggested Fix |
 |---|---|---|
 | BBFYB/HiBuddy CSS selectors may break if site updates | Products not scraped | Switch to Playwright for JS-rendered pages |
-| Reddit `/search.json` may rate-limit heavy usage | Sentiment data incomplete | Use official PRAW library with OAuth |
-| Store owner details are marked "Not publicly disclosed" | Ownership data missing | Cross-reference Ontario Business Registry |
+| Reddit `/search.json` may rate-limit heavy usage | Sentiment data incomplete | Use PRAW library with OAuth |
+| Store owner details marked "Not publicly disclosed" | Ownership data missing | Cross-reference Ontario Business Registry |
 | Phone/hours rely on website structure | ~60–80% fill rate expected | Supplement with Google Places API |
 | No automated scheduler | Manual re-run required | Add cron job or GitHub Actions workflow |
+
+---
+
+## Project Structure
+
+```
+cannabis-market-intel/
+├── run_all.py                        ← run full pipeline
+├── fetch_stores_agco.py
+├── enrich_store_contacts.py
+├── scrape_competitor_products.py
+├── compare_market_prices.py
+├── reddit_sentiment_analytics.py
+├── score_product_insights.py
+├── export_reports.py
+├── requirements.txt
+├── README.md
+└── output/                           ← all generated files (git ignored)
+```
 
 ---
 
